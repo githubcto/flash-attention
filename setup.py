@@ -195,7 +195,9 @@ def append_nvcc_threads(nvcc_extra_args):
 
 def rename_cpp_to_cu(cpp_files):
     for entry in cpp_files:
-        shutil.copy(entry, os.path.splitext(entry)[0] + ".cu")
+        cu_file = os.path.splitext(entry)[0] + ".cu"
+        if not os.path.exists(cu_file):
+            shutil.copy(entry, cu_file)
 
 
 def validate_and_update_archs(archs):
