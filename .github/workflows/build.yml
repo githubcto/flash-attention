@@ -1,107 +1,151 @@
-name: Build Flash Attention ROCm Windows (30min Test)
+name: Build Flash Attention ROCm Windows (Distributed)
 
 on:
   workflow_dispatch:
 
 env:
-  PYTHON_VERSION: "3.12"
-  FLASH_ATTN_LOCAL_VERSION: "rocm7.12torch2.10gfx1201"
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  PYTORCH_ROCM_ARCH: "gfx1201"
+  GPU_ARCHS: "gfx1201"
+  FLASH_ATTN_LOCAL_VERSION: "rocm7.12torch2.10.gfx1201"
+  CC: "clang-cl"
+  CXX: "clang-cl"
+  DISTUTILS_USE_SDK: "1"
+  TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL: "FALSE"
+  FLASH_ATTENTION_TRITON_AMD_ENABLE: "FALSE"
 
 jobs:
-  build:
+  # --- 1. 並列コンパイルジョブ (10分割) ---
+  compile-chunk:
     runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12"]
+        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
     steps:
-      - name: Enable long paths
+      - name: Enable long paths in Git
         run: git config --system core.longpaths true
 
-      - name: Checkout
+      - name: Checkout Flash Attention
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Setup Python
+      - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python-version }}
 
-      - name: Activate MSVC
+      - name: Activate MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      - name: Install dependencies
+      - name: Install PyTorch and ROCm SDK
         run: |
-          python -m pip install --upgrade pip
-          pip install wheel ninja
+          python -m pip install --upgrade pip wheel
           pip install torch torchvision torchaudio rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
           rocm-sdk init
 
-      - name: Setup environment
+      - name: Setup ROCm Dynamic Paths
         run: |
           $ROCM_ROOT = (rocm-sdk path --root).Trim()
           $ROCM_BIN = (rocm-sdk path --bin).Trim()
-
           echo "ROCM_HOME=$ROCM_ROOT" >> $env:GITHUB_ENV
           echo "$ROCM_ROOT\lib\llvm\bin" >> $env:GITHUB_PATH
           echo "$ROCM_BIN" >> $env:GITHUB_PATH
-
-          echo "CC=clang-cl" >> $env:GITHUB_ENV
-          echo "CXX=clang-cl" >> $env:GITHUB_ENV
-          echo "DISTUTILS_USE_SDK=1" >> $env:GITHUB_ENV
-
-          echo "TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=FALSE" >> $env:GITHUB_ENV
-          echo "FLASH_ATTENTION_TRITON_AMD_ENABLE=FALSE" >> $env:GITHUB_ENV
-
           echo "MAX_JOBS=$env:NUMBER_OF_PROCESSORS" >> $env:GITHUB_ENV
 
-          echo "PYTORCH_ROCM_ARCH=gfx1201" >> $env:GITHUB_ENV
-          echo "GPU_ARCHS=gfx1201" >> $env:GITHUB_ENV
-
-      - name: Restore build cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            build/temp.*
-          key: flashattn-build-cache
-          restore-keys: |
-            flashattn-build-cache
-
-      - name: Build (30min timed)
-        shell: pwsh
+      - name: Compile Chunk ${{ matrix.chunk }}
+        env:
+          BUILD_CHUNK_INDEX: ${{ matrix.chunk }}
+          BUILD_NUM_CHUNKS: 10
+          BUILD_COMPILE_ONLY: "1" # リンクをスキップするフラグ
         run: |
-          Write-Host "===== BUILD START (30 min test) ====="
+          # コンパイルのみを実行
+          python setup.py build_ext
 
-          $proc = Start-Process python -ArgumentList "setup.py build_ext --inplace" `
-            -NoNewWindow -PassThru
-
-          $timeout = 1800
-          $elapsed = 0
-
-          while (-not $proc.HasExited -and $elapsed -lt $timeout) {
-              Start-Sleep -Seconds 10
-              $elapsed += 10
-              Write-Host "Elapsed: $elapsed sec"
-          }
-
-          if (-not $proc.HasExited) {
-              Write-Host "Stopping build after 30 minutes"
-              Stop-Process -Id $proc.Id -Force
-          }
-
-          Write-Host "===== BUILD STOP ====="
-
-      - name: Cleanup before cache
-        run: |
-          if (Test-Path build\lib) {
-            Remove-Item -Recurse -Force build\lib
-          }
-
-      - name: Save build cache
-        uses: actions/cache@v4
+      - name: Upload Chunk Artifact
+        uses: actions/upload-artifact@v4
         with:
-          path: |
-            build/temp.*
-          key: flashattn-build-cache
-          
+          name: compiled-objects-chunk-${{ matrix.chunk }}
+          path: build/
+          retention-days: 1
+
+  # --- 2. リンク＆Wheel作成ジョブ ---
+  link-wheel:
+    needs: compile-chunk
+    runs-on: windows-2022
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+        
+    steps:
+      - name: Enable long paths in Git
+        run: git config --system core.longpaths true
+
+      - name: Checkout Flash Attention
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Activate MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Format Python Version for PyTorch URL
+        run: |
+          $py_ver = "${{ matrix.python-version }}"
+          $cp_ver = "cp" + $py_ver.Replace(".", "")
+          echo "CP_VER=$cp_ver" >> $env:GITHUB_ENV
+
+      - name: Install PyTorch and ROCm SDK
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install torch torchvision torchaudio rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
+          rocm-sdk init
+
+      - name: Setup ROCm Dynamic Paths
+        run: |
+          $ROCM_ROOT = (rocm-sdk path --root).Trim()
+          $ROCM_BIN = (rocm-sdk path --bin).Trim()
+          echo "ROCM_HOME=$ROCM_ROOT" >> $env:GITHUB_ENV
+          echo "$ROCM_ROOT\lib\llvm\bin" >> $env:GITHUB_PATH
+          echo "$ROCM_BIN" >> $env:GITHUB_PATH
+          echo "MAX_JOBS=$env:NUMBER_OF_PROCESSORS" >> $env:GITHUB_ENV
+
+      - name: Download Compiled Objects
+        uses: actions/download-artifact@v4
+        with:
+          pattern: compiled-objects-chunk-*
+          path: build/
+          merge-multiple: true
+
+      - name: Generate Source Files
+        run: |
+          # setup.py を空打ちしてCKのコード生成(generate.py)を完了させる
+          python setup.py --version
+
+      - name: Update Timestamps for Cached Objects
+        run: |
+          # Ninjaが再コンパイルをスキップするよう、.objファイルのタイムスタンプを現在時刻(ソース生成後)に更新
+          Start-Sleep -Seconds 2
+          Get-ChildItem -Path build -Filter *.obj -Recurse | ForEach-Object { $_.LastWriteTime = (Get-Date) }
+
+      - name: Link and Build Wheel
+        run: |
+          # 全ての .obj が揃っているためコンパイルはスキップされ、リンクのみが走る
+          python setup.py bdist_wheel
+
+      - name: Upload Final Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flash-attn-${{ env.FLASH_ATTN_LOCAL_VERSION }}-${{ env.CP_VER }}-win_amd64
+          path: dist/*.whl
