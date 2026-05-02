@@ -1,4 +1,4 @@
-name: Build Flash Attention ROCm Windows (Split)
+name: Build Flash Attention ROCm Windows (Incremental)
 
 on:
   workflow_dispatch:
@@ -6,21 +6,22 @@ on:
 env:
   PYTHON_VERSION: "3.12"
   FLASH_ATTN_LOCAL_VERSION: "rocm7.12torch2.10gfx1201"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-
   build:
     runs-on: windows-2022
 
     strategy:
+      max-parallel: 1
       matrix:
         part: [1,2,3,4,5,6,7,8,9,10]
 
     steps:
-      - name: Enable long paths in Git
+      - name: Enable long paths
         run: git config --system core.longpaths true
 
-      - name: Checkout Flash Attention
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -30,25 +31,24 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Activate MSVC
+      - name: MSVC
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install wheel ninja
           pip install torch torchvision torchaudio rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
           rocm-sdk init
 
-      - name: Setup Environment
+      - name: Setup env
         run: |
           $ROCM_ROOT = (rocm-sdk path --root).Trim()
           $ROCM_BIN = (rocm-sdk path --bin).Trim()
 
           echo "ROCM_HOME=$ROCM_ROOT" >> $env:GITHUB_ENV
-
           echo "$ROCM_ROOT\lib\llvm\bin" >> $env:GITHUB_PATH
           echo "$ROCM_BIN" >> $env:GITHUB_PATH
 
@@ -61,7 +61,6 @@ jobs:
 
           echo "MAX_JOBS=$env:NUMBER_OF_PROCESSORS" >> $env:GITHUB_ENV
 
-          # ★ 追加指定
           echo "PYTORCH_ROCM_ARCH=gfx1201" >> $env:GITHUB_ENV
           echo "GPU_ARCHS=gfx1201" >> $env:GITHUB_ENV
 
@@ -69,47 +68,39 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            build
-            **/*.obj
-            **/*.pyd
+            build/temp.*
           key: flashattn-build-cache
           restore-keys: |
             flashattn-build-cache
 
-      - name: Timed incremental build (5h30m)
-        shell: pwsh
+      - name: Build (incremental)
         run: |
-          Write-Host "Starting timed build (part ${{ matrix.part }})"
+          echo "=== BUILD PART ${{ matrix.part }} START ==="
+          python setup.py build_ext --inplace
+          echo "=== BUILD PART ${{ matrix.part }} END ==="
 
-          $process = Start-Process python -ArgumentList "setup.py build_ext --inplace" -PassThru
-
-          # 5時間30分 = 19800秒
-          Start-Sleep -Seconds 19800
-
-          if (!$process.HasExited) {
-              Write-Host "Stopping build after time limit"
-              Stop-Process -Id $process.Id -Force
+      - name: Cleanup before cache
+        run: |
+          if (Test-Path build\lib) {
+            Remove-Item -Recurse -Force build\lib
           }
 
       - name: Save build cache
         uses: actions/cache@v4
         with:
           path: |
-            build
-            **/*.obj
-            **/*.pyd
+            build/temp.*
           key: flashattn-build-cache
-
 
   final:
     runs-on: windows-2022
     needs: build
 
     steps:
-      - name: Enable long paths in Git
+      - name: Enable long paths
         run: git config --system core.longpaths true
 
-      - name: Checkout Flash Attention
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -119,25 +110,24 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Activate MSVC
+      - name: MSVC
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install wheel ninja
           pip install torch torchvision torchaudio rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
           rocm-sdk init
 
-      - name: Setup Environment
+      - name: Setup env
         run: |
           $ROCM_ROOT = (rocm-sdk path --root).Trim()
           $ROCM_BIN = (rocm-sdk path --bin).Trim()
 
           echo "ROCM_HOME=$ROCM_ROOT" >> $env:GITHUB_ENV
-
           echo "$ROCM_ROOT\lib\llvm\bin" >> $env:GITHUB_PATH
           echo "$ROCM_BIN" >> $env:GITHUB_PATH
 
@@ -157,16 +147,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            build
-            **/*.obj
-            **/*.pyd
+            build/temp.*
           key: flashattn-build-cache
 
-      - name: Final wheel build
+      - name: Build wheel
         run: |
           python setup.py bdist_wheel
 
-      - name: Upload Artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: flash-attn-${{ env.FLASH_ATTN_LOCAL_VERSION }}-cp312-win_amd64
