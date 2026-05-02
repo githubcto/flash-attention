@@ -121,23 +121,28 @@ jobs:
           echo "$ROCM_BIN" >> $env:GITHUB_PATH
           echo "MAX_JOBS=$env:NUMBER_OF_PROCESSORS" >> $env:GITHUB_ENV
 
-      - name: Download artifacts sequentially
+      - name: Download artifacts sequentially and merge
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # ワークフローのRun IDに関連づけられた全アーティファクトの情報を取得
           $artifactsJson = gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts
           $artifacts = $artifactsJson | ConvertFrom-Json
           
-          # buildディレクトリを作成（存在しない場合）
           New-Item -ItemType Directory -Force -Path build/
           
-          # "compiled-objects-chunk-"から始まるアーティファクトだけを1つずつ順番にダウンロード
           foreach ($artifact in $artifacts.artifacts) {
               if ($artifact.name -match "^compiled-objects-chunk-") {
                   Write-Host "Downloading $($artifact.name) ..."
-                  # --dir で展開先を指定（中身のファイルがそのまま build/ に入ります）
-                  gh run download ${{ github.run_id }} -n $artifact.name --dir build/
+                  $tempDir = "temp_$($artifact.name)"
+                  
+                  # 一旦テンポラリディレクトリにダウンロード
+                  gh run download ${{ github.run_id }} -n $artifact.name --dir $tempDir
+                  
+                  # テンポラリから build/ へ強制上書きでコピー
+                  Copy-Item -Path "$tempDir\*" -Destination build\ -Recurse -Force
+                  
+                  # テンポラリディレクトリを削除
+                  Remove-Item -Path $tempDir -Recurse -Force
               }
           }
         shell: pwsh
