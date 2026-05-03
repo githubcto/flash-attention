@@ -46,6 +46,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip wheel
           pip install https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_core-7.2.1-py3-none-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_devel-7.2.1-py3-none-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_libraries_custom-7.2.1-py3-none-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm-7.2.1.tar.gz https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torch-2.9.1+rocm7.2.1-cp312-cp312-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torchaudio-2.9.1+rocm7.2.1-cp312-cp312-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torchvision-0.24.1+rocm7.2.1-cp312-cp312-win_amd64.whl
+          $ROCM_ROOT = (rocm-sdk path --root).Trim()
+          $ROCM_BIN = (rocm-sdk path --bin).Trim()
+          echo "ROCM_HOME=$ROCM_ROOT" >> $env:GITHUB_ENV
+          echo "$ROCM_ROOT\lib\llvm\bin" >> $env:GITHUB_PATH
+          echo "$ROCM_BIN" >> $env:GITHUB_PATH
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
