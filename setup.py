@@ -254,7 +254,7 @@ elif not SKIP_CUDA_BUILD and IS_ROCM:
         # 追加: 分割ビルド用ソース切り出しロジック
         # =========================================================================
         chunk_index = int(os.environ.get("BUILD_CHUNK_INDEX", "-1"))
-        num_chunks = int(os.environ.get("BUILD_NUM_CHUNKS", "10"))
+        num_chunks = int(os.environ.get("BUILD_NUM_CHUNKS", "20"))
 
         target_sources = renamed_sources
         if chunk_index >= 0 and num_chunks > 0:
