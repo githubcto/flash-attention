@@ -20,8 +20,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12"]
-        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+        python-version: ["3.13"]
+        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22. 23]
 
     steps:
       - name: Enable long paths in Git
@@ -60,7 +60,7 @@ jobs:
       - name: Compile Chunk ${{ matrix.chunk }}
         env:
           BUILD_CHUNK_INDEX: ${{ matrix.chunk }}
-          BUILD_NUM_CHUNKS: 20
+          BUILD_NUM_CHUNKS: 24
           BUILD_COMPILE_ONLY: "1" # リンクをスキップするフラグ
         run: |
           # コンパイルのみを実行
@@ -79,7 +79,7 @@ jobs:
     runs-on: windows-2022
     strategy:
       matrix:
-        python-version: ["3.12"]
+        python-version: ["3.13"]
         
     steps:
       - name: Enable long paths in Git
