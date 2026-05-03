@@ -6,7 +6,7 @@ on:
 env:
   PYTORCH_ROCM_ARCH: "gfx1200;gfx1201"
   GPU_ARCHS: "gfx1200;gfx1201"
-  FLASH_ATTN_LOCAL_VERSION: "rocm7.12torch2.10.gfx120x"
+  FLASH_ATTN_LOCAL_VERSION: "rocm7.2.1torch2.9.1.gfx120x"
   CC: "clang-cl"
   CXX: "clang-cl"
   DISTUTILS_USE_SDK: "1"
@@ -14,14 +14,14 @@ env:
   FLASH_ATTENTION_TRITON_AMD_ENABLE: "FALSE"
 
 jobs:
-  # --- 1. 並列コンパイルジョブ (10分割) ---
+  # --- 1. jobs divide ---
   compile-chunk:
     runs-on: windows-2022
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11"]
-        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+        python-version: ["3.12"]
+        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
 
     steps:
       - name: Enable long paths in Git
@@ -45,7 +45,7 @@ jobs:
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          pip install torch torchvision torchaudio rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
+          pip install https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_core-7.2.1-py3-none-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_devel-7.2.1-py3-none-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_libraries_custom-7.2.1-py3-none-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm-7.2.1.tar.gz https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torch-2.9.1+rocm7.2.1-cp312-cp312-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torchaudio-2.9.1+rocm7.2.1-cp312-cp312-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torchvision-0.24.1+rocm7.2.1-cp312-cp312-win_amd64.whl
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
@@ -60,10 +60,10 @@ jobs:
       - name: Compile Chunk ${{ matrix.chunk }}
         env:
           BUILD_CHUNK_INDEX: ${{ matrix.chunk }}
-          BUILD_NUM_CHUNKS: 24
-          BUILD_COMPILE_ONLY: "1" # リンクをスキップするフラグ
+          BUILD_NUM_CHUNKS: 30
+          BUILD_COMPILE_ONLY: "1" # skip link
         run: |
-          # コンパイルのみを実行
+          # compile only
           python setup.py build_ext
 
       - name: Upload Chunk Artifact
@@ -73,13 +73,13 @@ jobs:
           path: build/
           retention-days: 1
 
-  # --- 2. リンク＆Wheel作成ジョブ ---
+  # --- 2. link and wheel ---
   link-wheel:
     needs: compile-chunk
     runs-on: windows-2022
     strategy:
       matrix:
-        python-version: ["3.11"]
+        python-version: ["3.12"]
         
     steps:
       - name: Enable long paths in Git
@@ -135,13 +135,13 @@ jobs:
                   Write-Host "Downloading $($artifact.name) ..."
                   $tempDir = "temp_$($artifact.name)"
                   
-                  # 一旦テンポラリディレクトリにダウンロード
+                  # download to tmp
                   gh run download ${{ github.run_id }} -n $artifact.name --dir $tempDir
                   
-                  # テンポラリから build/ へ強制上書きでコピー
+                  # tmp override build/ 
                   Copy-Item -Path "$tempDir\*" -Destination build\ -Recurse -Force
                   
-                  # テンポラリディレクトリを削除
+                  # remove tmp
                   Remove-Item -Path $tempDir -Recurse -Force
               }
           }
@@ -149,14 +149,14 @@ jobs:
 
       - name: Generate Source Files
         run: |
-          # setup.py を空打ちしてCKのコード生成(generate.py)を完了させる
+          # dummy setup.py make CK code (generate.py)
           python setup.py --version
 
       - name: Link and Build Wheel
         env:
-          BUILD_LINK_ONLY: "1"  # <--- これを追加してコンパイルをスキップさせる
+          BUILD_LINK_ONLY: "1"  # build link only
         run: |
-          # Ninjaは完全にスキップされ、集約された .obj ファイルのリンクのみが走る
+          # skip Ninja
           python setup.py bdist_wheel
 
       - name: Upload Final Artifact
