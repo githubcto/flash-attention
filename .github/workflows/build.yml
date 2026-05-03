@@ -1,170 +1,90 @@
-name: Build Flash Attention ROCm Windows (Distributed)
+name: Flash-Attention-20-Chunk-Build
 
 on:
   workflow_dispatch:
 
-env:
-  PYTORCH_ROCM_ARCH: "gfx1201"
-  GPU_ARCHS: "gfx1201"
-  FLASH_ATTN_LOCAL_VERSION: "rocm7.12torch2.10.gfx1201"
-  CC: "clang-cl"
-  CXX: "clang-cl"
-  DISTUTILS_USE_SDK: "1"
-  TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL: "FALSE"
-  FLASH_ATTENTION_TRITON_AMD_ENABLE: "FALSE"
-
 jobs:
-  # --- 1. 並列コンパイルジョブ (10分割) ---
-  compile-chunk:
-    runs-on: windows-2022
+  # =========================================================
+  # 1. 20並列コンパイル
+  # =========================================================
+  compile:
+    runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12"]
-        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        # 0から19の20スロット
+        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 
     steps:
-      - name: Enable long paths in Git
-        run: git config --system core.longpaths true
-
-      - name: Checkout Flash Attention
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Setup Python ${{ matrix.python-version }}
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.11'
 
-      - name: Activate MSVC environment
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      - name: Install PyTorch and ROCm SDK
+      - name: Install Build Tools
         run: |
-          python -m pip install --upgrade pip wheel
-          pip install torch torchvision torchaudio rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
-          rocm-sdk init
-
-      - name: Setup ROCm Dynamic Paths
-        run: |
-          $ROCM_ROOT = (rocm-sdk path --root).Trim()
-          $ROCM_BIN = (rocm-sdk path --bin).Trim()
-          echo "ROCM_HOME=$ROCM_ROOT" >> $env:GITHUB_ENV
-          echo "$ROCM_ROOT\lib\llvm\bin" >> $env:GITHUB_PATH
-          echo "$ROCM_BIN" >> $env:GITHUB_PATH
-          echo "MAX_JOBS=$env:NUMBER_OF_PROCESSORS" >> $env:GITHUB_ENV
+          pip install torch --index-url https://download.pytorch.org/whl/cu121
+          pip install ninja packaging psutil wheel
 
       - name: Compile Chunk ${{ matrix.chunk }}
         env:
           BUILD_CHUNK_INDEX: ${{ matrix.chunk }}
-          BUILD_NUM_CHUNKS: 10
-          BUILD_COMPILE_ONLY: "1" # リンクをスキップするフラグ
+          BUILD_COMPILE_ONLY: "1"
+          FLASH_ATTENTION_FORCE_BUILD: "TRUE"
+          BUILD_TARGET: "rocm"
         run: |
-          # コンパイルのみを実行
           python setup.py build_ext
 
       - name: Upload Chunk Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: compiled-objects-chunk-${{ matrix.chunk }}
+          name: objects-chunk-${{ matrix.chunk }}
           path: build/
           retention-days: 1
 
-  # --- 2. リンク＆Wheel作成ジョブ ---
-  link-wheel:
-    needs: compile-chunk
-    runs-on: windows-2022
-    strategy:
-      matrix:
-        python-version: ["3.12"]
-        
+  # =========================================================
+  # 2. リンクとパッケージング
+  # =========================================================
+  link:
+    needs: compile
+    runs-on: windows-latest
     steps:
-      - name: Enable long paths in Git
-        run: git config --system core.longpaths true
-
-      - name: Checkout Flash Attention
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Setup Python ${{ matrix.python-version }}
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.11'
 
-      - name: Activate MSVC environment
-        uses: ilammy/msvc-dev-cmd@v1
+      - name: Install Build Tools
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cu121
+          pip install ninja packaging psutil wheel
+
+      - name: Download and Merge Artifacts
+        uses: actions/download-artifact@v4
         with:
-          arch: x64
+          pattern: objects-chunk-*
+          merge-multiple: true
+          path: build/
 
-      - name: Format Python Version for PyTorch URL
-        run: |
-          $py_ver = "${{ matrix.python-version }}"
-          $cp_ver = "cp" + $py_ver.Replace(".", "")
-          echo "CP_VER=$cp_ver" >> $env:GITHUB_ENV
-
-      - name: Install PyTorch and ROCm SDK
-        run: |
-          python -m pip install --upgrade pip wheel
-          pip install torch torchvision torchaudio rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
-          rocm-sdk init
-
-      - name: Setup ROCm Dynamic Paths
-        run: |
-          $ROCM_ROOT = (rocm-sdk path --root).Trim()
-          $ROCM_BIN = (rocm-sdk path --bin).Trim()
-          echo "ROCM_HOME=$ROCM_ROOT" >> $env:GITHUB_ENV
-          echo "$ROCM_ROOT\lib\llvm\bin" >> $env:GITHUB_PATH
-          echo "$ROCM_BIN" >> $env:GITHUB_PATH
-          echo "MAX_JOBS=$env:NUMBER_OF_PROCESSORS" >> $env:GITHUB_ENV
-
-      - name: Download artifacts sequentially and merge
+      - name: Final Link and Build Wheel
         env:
-          GH_TOKEN: ${{ github.token }}
+          BUILD_LINK_ONLY: "1"
+          FLASH_ATTENTION_FORCE_BUILD: "TRUE"
+          BUILD_TARGET: "rocm"
         run: |
-          $artifactsJson = gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts
-          $artifacts = $artifactsJson | ConvertFrom-Json
-          
-          New-Item -ItemType Directory -Force -Path build/
-          
-          foreach ($artifact in $artifacts.artifacts) {
-              if ($artifact.name -match "^compiled-objects-chunk-") {
-                  Write-Host "Downloading $($artifact.name) ..."
-                  $tempDir = "temp_$($artifact.name)"
-                  
-                  # 一旦テンポラリディレクトリにダウンロード
-                  gh run download ${{ github.run_id }} -n $artifact.name --dir $tempDir
-                  
-                  # テンポラリから build/ へ強制上書きでコピー
-                  Copy-Item -Path "$tempDir\*" -Destination build\ -Recurse -Force
-                  
-                  # テンポラリディレクトリを削除
-                  Remove-Item -Path $tempDir -Recurse -Force
-              }
-          }
-        shell: pwsh
-
-      - name: Generate Source Files
-        run: |
-          # setup.py を空打ちしてCKのコード生成(generate.py)を完了させる
-          python setup.py --version
-
-      - name: Update Timestamps for Cached Objects
-        run: |
-          # Ninjaが再コンパイルをスキップするよう、.objファイルのタイムスタンプを現在時刻(ソース生成後)に更新
-          Start-Sleep -Seconds 2
-          Get-ChildItem -Path build -Filter *.obj -Recurse | ForEach-Object { $_.LastWriteTime = (Get-Date) }
-
-      - name: Link and Build Wheel
-        run: |
-          # 全ての .obj が揃っているためコンパイルはスキップされ、リンクのみが走る
           python setup.py bdist_wheel
 
-      - name: Upload Final Artifact
+      - name: Upload Final Wheel
         uses: actions/upload-artifact@v4
         with:
-          name: flash-attn-${{ env.FLASH_ATTN_LOCAL_VERSION }}-${{ env.CP_VER }}-win_amd64
+          name: Flash-Attention-20-Chunk-Wheel
           path: dist/*.whl
+          
