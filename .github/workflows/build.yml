@@ -60,7 +60,7 @@ jobs:
       - name: Compile Chunk ${{ matrix.chunk }}
         env:
           BUILD_CHUNK_INDEX: ${{ matrix.chunk }}
-          BUILD_NUM_CHUNKS: 10
+          BUILD_NUM_CHUNKS: 20
           BUILD_COMPILE_ONLY: "1" # リンクをスキップするフラグ
         run: |
           # コンパイルのみを実行
