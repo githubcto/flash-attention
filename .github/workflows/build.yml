@@ -152,15 +152,11 @@ jobs:
           # setup.py を空打ちしてCKのコード生成(generate.py)を完了させる
           python setup.py --version
 
-      - name: Update Timestamps for Cached Objects
-        run: |
-          # Ninjaが再コンパイルをスキップするよう、.objファイルのタイムスタンプを現在時刻(ソース生成後)に更新
-          Start-Sleep -Seconds 2
-          Get-ChildItem -Path build -Filter *.obj -Recurse | ForEach-Object { $_.LastWriteTime = (Get-Date) }
-
       - name: Link and Build Wheel
+        env:
+          BUILD_LINK_ONLY: "1"  # <--- これを追加してコンパイルをスキップさせる
         run: |
-          # 全ての .obj が揃っているためコンパイルはスキップされ、リンクのみが走る
+          # Ninjaは完全にスキップされ、集約された .obj ファイルのリンクのみが走る
           python setup.py bdist_wheel
 
       - name: Upload Final Artifact
