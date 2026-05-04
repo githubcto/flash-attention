@@ -477,7 +477,7 @@ elif not SKIP_CUDA_BUILD and IS_ROCM:
                         "csrc/flash_attn_ck/mha_fwd_kvcache.cu",
                         "csrc/flash_attn_ck/mha_fwd.cu",
                         "csrc/flash_attn_ck/mha_varlen_bwd.cu",
-                        "csrc/flash_attn_ck/mha_varlen_fwd.cu"] + glob.glob(f"build/fmha_*wd*.cu")
+                        "csrc/flash_attn_ck/mha_varlen_fwd.cu"] + sorted(glob.glob(f"build/fmha_*wd*.cu"))
 
         # =========================================================================
         # github Actions patch
@@ -487,11 +487,11 @@ elif not SKIP_CUDA_BUILD and IS_ROCM:
 
         target_sources = renamed_sources
         if chunk_index >= 0 and num_chunks > 0:
-            chunk_size = math.ceil(len(renamed_sources) / num_chunks)
-            start_idx = chunk_index * chunk_size
-            end_idx = min(start_idx + chunk_size, len(renamed_sources))
-            target_sources = renamed_sources[start_idx:end_idx]
-            print(f"\n[Parallel Build] Building Chunk {chunk_index + 1}/{num_chunks}")
+            # round robin skip
+            target_sources = [
+                renamed_sources[i] for i in range(len(renamed_sources)) if i % num_chunks == chunk_index
+            ]
+            print(f"\n[Parallel Build] Building Chunk {chunk_index + 1}/{num_chunks} (Round-Robin)")
             print(f"[Parallel Build] Compiling {len(target_sources)} files out of {len(renamed_sources)}\n")
         # =========================================================================
 
