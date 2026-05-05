@@ -6,7 +6,7 @@ on:
 env:
   PYTORCH_ROCM_ARCH: "gfx1201"
   GPU_ARCHS: "gfx1201"
-  FLASH_ATTN_LOCAL_VERSION: "rocm7.2.1torch2.9.1gfx1201"
+  FLASH_ATTN_LOCAL_VERSION: "rocm7.12torch2.10.gfx1201"
   CC: "clang-cl"
   CXX: "clang-cl"
   DISTUTILS_USE_SDK: "1"
@@ -14,13 +14,13 @@ env:
   FLASH_ATTENTION_TRITON_AMD_ENABLE: "FALSE"
 
 jobs:
-  # --- 1-A. jobs divide part1 ---
-  compile-chunk-part1:
+  # --- 1. jobs divide ---
+  compile-chunk:
     runs-on: windows-2022
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12"]
+        python-version: ["3.11"]
         chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 
     steps:
@@ -45,12 +45,7 @@ jobs:
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          pip install https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_core-7.2.1-py3-none-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_devel-7.2.1-py3-none-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_libraries_custom-7.2.1-py3-none-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm-7.2.1.tar.gz https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torch-2.9.1+rocm7.2.1-cp312-cp312-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torchaudio-2.9.1+rocm7.2.1-cp312-cp312-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torchvision-0.24.1+rocm7.2.1-cp312-cp312-win_amd64.whl
-          $ROCM_ROOT = (rocm-sdk path --root).Trim()
-          $ROCM_BIN = (rocm-sdk path --bin).Trim()
-          echo "ROCM_HOME=$ROCM_ROOT" >> $env:GITHUB_ENV
-          echo "$ROCM_ROOT\lib\llvm\bin" >> $env:GITHUB_PATH
-          echo "$ROCM_BIN" >> $env:GITHUB_PATH
+          pip install torch torchvision torchaudio rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
@@ -62,75 +57,10 @@ jobs:
           echo "$ROCM_BIN" >> $env:GITHUB_PATH
           echo "MAX_JOBS=$env:NUMBER_OF_PROCESSORS" >> $env:GITHUB_ENV
 
-      - name: Compile Chunk ${{ matrix.chunk }} (Part 1)
+      - name: Compile Chunk ${{ matrix.chunk }}
         env:
           BUILD_CHUNK_INDEX: ${{ matrix.chunk }}
-          BUILD_NUM_CHUNKS: 40
-          BUILD_COMPILE_ONLY: "1" # skip link
-        run: |
-          # compile only
-          python setup.py build_ext
-
-      - name: Upload Chunk Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: compiled-objects-chunk-${{ matrix.chunk }}
-          path: build/
-          retention-days: 1
-
-  # --- 1-B. jobs divide part2 ---
-  compile-chunk-part2:
-    needs: compile-chunk-part1  # wait part1
-    runs-on: windows-2022
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.12"]
-        chunk: [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]
-
-    steps:
-      - name: Enable long paths in Git
-        run: git config --system core.longpaths true
-
-      - name: Checkout Flash Attention
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Activate MSVC environment
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      - name: Install PyTorch and ROCm SDK
-        run: |
-          python -m pip install --upgrade pip wheel
-          pip install https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_core-7.2.1-py3-none-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_devel-7.2.1-py3-none-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_libraries_custom-7.2.1-py3-none-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm-7.2.1.tar.gz https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torch-2.9.1+rocm7.2.1-cp312-cp312-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torchaudio-2.9.1+rocm7.2.1-cp312-cp312-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torchvision-0.24.1+rocm7.2.1-cp312-cp312-win_amd64.whl
-          $ROCM_ROOT = (rocm-sdk path --root).Trim()
-          $ROCM_BIN = (rocm-sdk path --bin).Trim()
-          echo "ROCM_HOME=$ROCM_ROOT" >> $env:GITHUB_ENV
-          echo "$ROCM_ROOT\lib\llvm\bin" >> $env:GITHUB_PATH
-          echo "$ROCM_BIN" >> $env:GITHUB_PATH
-          rocm-sdk init
-
-      - name: Setup ROCm Dynamic Paths
-        run: |
-          $ROCM_ROOT = (rocm-sdk path --root).Trim()
-          $ROCM_BIN = (rocm-sdk path --bin).Trim()
-          echo "ROCM_HOME=$ROCM_ROOT" >> $env:GITHUB_ENV
-          echo "$ROCM_ROOT\lib\llvm\bin" >> $env:GITHUB_PATH
-          echo "$ROCM_BIN" >> $env:GITHUB_PATH
-          echo "MAX_JOBS=$env:NUMBER_OF_PROCESSORS" >> $env:GITHUB_ENV
-
-      - name: Compile Chunk ${{ matrix.chunk }} (Part 2)
-        env:
-          BUILD_CHUNK_INDEX: ${{ matrix.chunk }}
-          BUILD_NUM_CHUNKS: 40
+          BUILD_NUM_CHUNKS: 20
           BUILD_COMPILE_ONLY: "1" # skip link
         run: |
           # compile only
@@ -145,11 +75,11 @@ jobs:
 
   # --- 2. link and wheel ---
   link-wheel:
-    needs: compile-chunk-part2
+    needs: compile-chunk
     runs-on: windows-2022
     strategy:
       matrix:
-        python-version: ["3.12"]
+        python-version: ["3.11"]
         
     steps:
       - name: Enable long paths in Git
@@ -179,12 +109,7 @@ jobs:
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          pip install https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_core-7.2.1-py3-none-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_devel-7.2.1-py3-none-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_libraries_custom-7.2.1-py3-none-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm-7.2.1.tar.gz https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torch-2.9.1+rocm7.2.1-cp312-cp312-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torchaudio-2.9.1+rocm7.2.1-cp312-cp312-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torchvision-0.24.1+rocm7.2.1-cp312-cp312-win_amd64.whl
-          $ROCM_ROOT = (rocm-sdk path --root).Trim()
-          $ROCM_BIN = (rocm-sdk path --bin).Trim()
-          echo "ROCM_HOME=$ROCM_ROOT" >> $env:GITHUB_ENV
-          echo "$ROCM_ROOT\lib\llvm\bin" >> $env:GITHUB_PATH
-          echo "$ROCM_BIN" >> $env:GITHUB_PATH
+          pip install torch torchvision torchaudio rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
