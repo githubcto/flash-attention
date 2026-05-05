@@ -717,18 +717,8 @@ class NinjaBuildExtension(BuildExtension):
             original_spawn = self.compiler.spawn
 
             def spawn(cmd):
-                if not cmd:
+                if not cmd or Path(str(cmd[0])).name.lower() != "link.exe":
                     return original_spawn(cmd)
-
-                exe_name = Path(str(cmd[0])).name.lower()
-                
-                if exe_name == "link.exe":
-                    cmd = ["lld-link.exe"] + list(cmd[1:])
-                    exe_name = "lld-link.exe"
-                
-                if exe_name not in ("link.exe", "lld-link.exe"):
-                    return original_spawn(cmd)
-                
                 cmd = [str(arg) for arg in cmd]
                 if len(subprocess.list2cmdline(cmd)) <= 32767:
                     return original_spawn(cmd)
