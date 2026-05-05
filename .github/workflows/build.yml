@@ -6,7 +6,7 @@ on:
 env:
   PYTORCH_ROCM_ARCH: "gfx1201"
   GPU_ARCHS: "gfx1201"
-  FLASH_ATTN_LOCAL_VERSION: "rocm7.12torch2.10.gfx1201"
+  FLASH_ATTN_LOCAL_VERSION: "rocm7.12torch2.10gfx1201"
   CC: "clang-cl"
   CXX: "clang-cl"
   DISTUTILS_USE_SDK: "1"
