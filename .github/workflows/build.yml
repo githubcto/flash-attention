@@ -6,7 +6,7 @@ on:
 env:
   PYTORCH_ROCM_ARCH: "gfx1100;gfx1101;gfx1102;gfx1150;gfx1151;gfx1200;gfx1201"
   GPU_ARCHS: "gfx1100;gfx1101;gfx1102;gfx1150;gfx1151;gfx1200;gfx1201"
-  FLASH_ATTN_LOCAL_VERSION: "rocm7.12torch2.10.0"
+  FLASH_ATTN_LOCAL_VERSION: "rocm7.12torch2.9.1"
   CC: "clang-cl"
   CXX: "clang-cl"
   DISTUTILS_USE_SDK: "1"
@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11"]
+        python-version: ["3.13"]
         chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 
     steps:
@@ -45,7 +45,7 @@ jobs:
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          pip install torch torchvision torchaudio rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
+          pip install torch==2.9.1+rocm7.12.0 torchvision==0.24.0+rocm7.12.0 torchaudio==2.9.0+rocm7.12.0 rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
@@ -80,7 +80,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11"]
+        python-version: ["3.13"]
         chunk: [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]
 
     steps:
@@ -105,7 +105,7 @@ jobs:
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          pip install torch torchvision torchaudio rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
+          pip install torch==2.9.1+rocm7.12.0 torchvision==0.24.0+rocm7.12.0 torchaudio==2.9.0+rocm7.12.0 rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
@@ -139,7 +139,7 @@ jobs:
     runs-on: windows-2022
     strategy:
       matrix:
-        python-version: ["3.11"]
+        python-version: ["3.13"]
         
     steps:
       - name: Enable long paths in Git
@@ -169,7 +169,7 @@ jobs:
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          pip install torch torchvision torchaudio rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
+          pip install torch==2.9.1+rocm7.12.0 torchvision==0.24.0+rocm7.12.0 torchaudio==2.9.0+rocm7.12.0 rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
