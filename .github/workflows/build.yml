@@ -1,167 +1,47 @@
-name: Build Flash Attention ROCm Windows (Distributed)
+name: Build wheels
 
 on:
   workflow_dispatch:
-
-env:
-  PYTORCH_ROCM_ARCH: "gfx1200;gfx1201"
-  GPU_ARCHS: "gfx1200;gfx1201"
-  FLASH_ATTN_LOCAL_VERSION: "rocm7.13.0torch2.10.0gfx120xTheRock"
-  CC: "clang-cl"
-  CXX: "clang-cl"
-  DISTUTILS_USE_SDK: "1"
-  TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL: "FALSE"
-  FLASH_ATTENTION_TRITON_AMD_ENABLE: "FALSE"
+    inputs:
+      runs-on:
+        description: "The runner to use for the build"
+        required: true
+        type: string
+        default: ubuntu-22.04
+      python-version:
+        description: "The Python version to use for the build"
+        required: true
+        type: string
+      cuda-version:
+        description: "The CUDA version to use for the build"
+        required: true
+        type: string
+      torch-version:
+        description: "The PyTorch version to use for the build"
+        required: true
+        type: string
+      cxx11_abi:
+        description: "Enable torch flag C++11 ABI (TRUE/FALSE)"
+        required: true
+        type: string
+      upload-to-release:
+        description: "Upload wheel to this release"
+        required: false
+        type: boolean
+        default: false
+      release-version:
+        description: "Upload wheel to this release"
+        required: false
+        type: string
 
 jobs:
-  # --- 1-A. jobs divide part1 ---
-  compile-chunk:
-    runs-on: windows-2022
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.10"]
-        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-
-    steps:
-      - name: Enable long paths in Git
-        run: git config --system core.longpaths true
-
-      - name: Checkout Flash Attention
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Activate MSVC environment
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      - name: Install PyTorch and ROCm SDK
-        run: |
-          python -m pip install --upgrade pip wheel
-          pip install torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 rocm[devel] numpy==1.26.2 --extra-index-url https://rocm.nightlies.amd.com/v2/gfx120X-all
-          rocm-sdk init
-
-      - name: Setup ROCm Dynamic Paths
-        run: |
-          $ROCM_ROOT = (rocm-sdk path --root).Trim()
-          $ROCM_BIN = (rocm-sdk path --bin).Trim()
-          echo "ROCM_HOME=$ROCM_ROOT" >> $env:GITHUB_ENV
-          echo "$ROCM_ROOT\lib\llvm\bin" >> $env:GITHUB_PATH
-          echo "$ROCM_BIN" >> $env:GITHUB_PATH
-          echo "MAX_JOBS=$env:NUMBER_OF_PROCESSORS" >> $env:GITHUB_ENV
-
-      - name: Compile Chunk ${{ matrix.chunk }} (Part 1)
-        env:
-          BUILD_CHUNK_INDEX: ${{ matrix.chunk }}
-          BUILD_NUM_CHUNKS: 20
-          BUILD_COMPILE_ONLY: "1" # skip link
-        run: |
-          # compile only
-          python setup.py build_ext
-
-      - name: Upload Chunk Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: compiled-objects-chunk-${{ matrix.chunk }}
-          path: build/
-          retention-days: 1
-
-  # --- 2. link and wheel ---
-  link-wheel:
-    needs: compile-chunk
-    runs-on: windows-2022
-    strategy:
-      matrix:
-        python-version: ["3.10"]
-        
-    steps:
-      - name: Enable long paths in Git
-        run: git config --system core.longpaths true
-
-      - name: Checkout Flash Attention
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Activate MSVC environment
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      - name: Format Python Version for PyTorch URL
-        run: |
-          $py_ver = "${{ matrix.python-version }}"
-          $cp_ver = "cp" + $py_ver.Replace(".", "")
-          echo "CP_VER=$cp_ver" >> $env:GITHUB_ENV
-
-      - name: Install PyTorch and ROCm SDK
-        run: |
-          python -m pip install --upgrade pip wheel
-          pip install torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 rocm[devel] numpy==1.26.2 --extra-index-url https://rocm.nightlies.amd.com/v2/gfx120X-all
-          rocm-sdk init
-
-      - name: Setup ROCm Dynamic Paths
-        run: |
-          $ROCM_ROOT = (rocm-sdk path --root).Trim()
-          $ROCM_BIN = (rocm-sdk path --bin).Trim()
-          echo "ROCM_HOME=$ROCM_ROOT" >> $env:GITHUB_ENV
-          echo "$ROCM_ROOT\lib\llvm\bin" >> $env:GITHUB_PATH
-          echo "$ROCM_BIN" >> $env:GITHUB_PATH
-          echo "MAX_JOBS=$env:NUMBER_OF_PROCESSORS" >> $env:GITHUB_ENV
-
-      - name: Download artifacts sequentially and merge
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $artifactsJson = gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts?per_page=99
-          $artifacts = $artifactsJson | ConvertFrom-Json
-          
-          New-Item -ItemType Directory -Force -Path build/
-          
-          foreach ($artifact in $artifacts.artifacts) {
-              if ($artifact.name -match "^compiled-objects-chunk-") {
-                  Write-Host "Downloading $($artifact.name) ..."
-                  $tempDir = "temp_$($artifact.name)"
-                  
-                  # download to tmp
-                  gh run download ${{ github.run_id }} -n $artifact.name --dir $tempDir
-                  
-                  # tmp override build/ 
-                  Copy-Item -Path "$tempDir\*" -Destination build\ -Recurse -Force
-                  
-                  # remove tmp
-                  Remove-Item -Path $tempDir -Recurse -Force
-              }
-          }
-        shell: pwsh
-
-      - name: Generate Source Files
-        run: |
-          # dummy setup.py make CK code (generate.py)
-          python setup.py --version
-
-      - name: Link and Build Wheel
-        env:
-          BUILD_LINK_ONLY: "1"  # build link only
-        run: |
-          # skip Ninja
-          python setup.py bdist_wheel
-
-      - name: Upload Final Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: flash-attn-${{ env.FLASH_ATTN_LOCAL_VERSION }}-${{ env.CP_VER }}-win_amd64
-          path: dist/*.whl
-
+  build-wheels:
+    uses: ./.github/workflows/_build.yml
+    with:
+      runs-on: ${{ inputs.runs-on }}
+      python-version: ${{ inputs.python-version }}
+      cuda-version: ${{ inputs.cuda-version }}
+      torch-version: ${{ inputs.torch-version }}
+      cxx11_abi: ${{ inputs.cxx11_abi }}
+      upload-to-release: ${{ inputs.upload-to-release }}
+      release-version: ${{ inputs.release-version }}
