@@ -6,7 +6,7 @@ on:
 env:
   PYTORCH_ROCM_ARCH: "gfx1201"
   GPU_ARCHS: "gfx1201"
-  FLASH_ATTN_LOCAL_VERSION: "rocm7.12.0torch2.10.0gfx1201TheRock"
+  FLASH_ATTN_LOCAL_VERSION: "rocm7.13.0torch2.10.0gfx1201TheRock"
   CC: "clang-cl"
   CXX: "clang-cl"
   DISTUTILS_USE_SDK: "1"
@@ -45,7 +45,7 @@ jobs:
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          pip install torch==2.10.0+rocm7.12.0a20260220 torchvision==0.25.0+rocm7.12.0a20260220  torchaudio==2.10.0+rocm7.12.0a20260220 rocm[devel] numpy==1.26.2 --extra-index-url https://rocm.nightlies.amd.com/v2/gfx120X-all
+          pip install torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 rocm[devel] numpy==1.26.2 --extra-index-url https://rocm.nightlies.amd.com/v2/gfx120X-all
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
@@ -109,7 +109,7 @@ jobs:
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          pip install torch==2.10.0+rocm7.12.0a20260220 torchvision==0.25.0+rocm7.12.0a20260220  torchaudio==2.10.0+rocm7.12.0a20260220 rocm[devel] numpy==1.26.2 --extra-index-url https://rocm.nightlies.amd.com/v2/gfx120X-all
+          pip install torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 rocm[devel] numpy==1.26.2 --extra-index-url https://rocm.nightlies.amd.com/v2/gfx120X-all
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
