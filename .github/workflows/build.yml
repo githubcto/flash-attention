@@ -34,7 +34,7 @@ jobs:
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip download torch[device-gfx1201] torchvision[device-gfx1201] torchaudio rocm[devel,device-gfx1201] --index-url https://rocm.nightlies.amd.com/whl-staging-multi-arch/ --dest ./rocm_deps
+          python -m pip download torch[device-gfx1201] torchvision[device-gfx1201] torchaudio rocm[devel,device-gfx1201] numpy==1.26.4 --extra-index-url https://rocm.nightlies.amd.com/whl-staging-multi-arch/ --dest ./rocm_deps
 
   # --- 1-A. jobs divide part1 ---
   compile-chunk:
@@ -44,7 +44,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10"]
-        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 
     steps:
       - name: Enable long paths in Git
@@ -74,7 +74,7 @@ jobs:
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install torch[device-gfx1201] torchvision[device-gfx1201] torchaudio rocm[devel,device-gfx1201] --no-index --find-links=./rocm_deps
+          python -m pip install torch[device-gfx1201] torchvision[device-gfx1201] torchaudio rocm[devel,device-gfx1201] numpy==1.26.4 --no-index --find-links=./rocm_deps
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
@@ -89,7 +89,7 @@ jobs:
       - name: Compile Chunk ${{ matrix.chunk }} (Part 1)
         env:
           BUILD_CHUNK_INDEX: ${{ matrix.chunk }}
-          BUILD_NUM_CHUNKS: 19
+          BUILD_NUM_CHUNKS: 20
           BUILD_COMPILE_ONLY: "1" # skip link
         run: |
           # compile only
@@ -144,7 +144,7 @@ jobs:
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install torch[device-gfx1201] torchvision[device-gfx1201] torchaudio rocm[devel,device-gfx1201] --no-index --find-links=./rocm_deps
+          python -m pip install torch[device-gfx1201] torchvision[device-gfx1201] torchaudio rocm[devel,device-gfx1201] numpy==1.26.4 --no-index --find-links=./rocm_deps
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
