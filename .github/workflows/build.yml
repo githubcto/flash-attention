@@ -171,7 +171,7 @@ jobs:
 
   # --- 2. link and wheel ---
   link-wheel:
-    needs: compile-chunk
+    needs: compile-chunk-part2
     runs-on: windows-2022
     strategy:
       matrix:
