@@ -34,8 +34,7 @@ jobs:
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install  numpy==1.26.4 setuptools==69.5.1 networkx==3.4.2
-          python -m pip download torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all --dest ./rocm_deps
+          python -m pip download torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 networkx==3.4.2 Pillow==9.5.0 MarkupSafe==2.1.5 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all --dest ./rocm_deps
 
   # --- 1-A. jobs divide part1 ---
   compile-chunk-part1:
@@ -66,11 +65,16 @@ jobs:
         with:
           arch: x64
 
+      - name: Restore ROCm Dependencies
+        uses: actions/cache/restore@v4
+        with:
+          path: ./rocm_deps
+          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.10
+
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install  numpy==1.26.4 setuptools==69.5.1 networkx==3.4.2
-          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
+          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 networkx==3.4.2 Pillow==9.5.0 MarkupSafe==2.1.5 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all --no-index --find-links=./rocm_deps
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
@@ -137,8 +141,7 @@ jobs:
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install  numpy==1.26.4 setuptools==69.5.1 networkx==3.4.2
-          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
+          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 networkx==3.4.2 Pillow==9.5.0 MarkupSafe==2.1.5 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all --no-index --find-links=./rocm_deps
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
@@ -208,8 +211,7 @@ jobs:
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install  numpy==1.26.4 setuptools==69.5.1 networkx==3.4.2
-          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all
+          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 networkx==3.4.2 Pillow==9.5.0 MarkupSafe==2.1.5 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all --no-index --find-links=./rocm_deps
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
