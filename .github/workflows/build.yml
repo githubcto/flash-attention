@@ -14,31 +14,8 @@ env:
   FLASH_ATTENTION_TRITON_AMD_ENABLE: "FALSE"
 
 jobs:
-  # --- 0. prepare dependencies ---
-  prepare-deps:
-    runs-on: windows-2022
-    steps:
-      - name: Setup Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Cache dependencies
-        id: cache-deps
-        uses: actions/cache@v4
-        with:
-          path: ./rocm_deps
-          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.10
-
-      - name: Download dependencies
-        if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: |
-          python -m pip install --upgrade pip wheel
-          python -m pip download torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 networkx==3.4.2 Pillow==9.5.0 MarkupSafe==2.1.5 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all --dest ./rocm_deps
-
   # --- 1-A. jobs divide part1 ---
   compile-chunk-part1:
-    needs: prepare-deps
     runs-on: windows-2022
     strategy:
       fail-fast: false
@@ -65,16 +42,10 @@ jobs:
         with:
           arch: x64
 
-      - name: Restore ROCm Dependencies
-        uses: actions/cache/restore@v4
-        with:
-          path: ./rocm_deps
-          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.10
-
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 networkx==3.4.2 Pillow==9.5.0 MarkupSafe==2.1.5 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all --no-index --find-links=./rocm_deps
+          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 networkx==3.4.2 Pillow==9.5.0 MarkupSafe==2.1.5 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
@@ -132,16 +103,10 @@ jobs:
         with:
           arch: x64
 
-      - name: Restore ROCm Dependencies
-        uses: actions/cache/restore@v4
-        with:
-          path: ./rocm_deps
-          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.10
-
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 networkx==3.4.2 Pillow==9.5.0 MarkupSafe==2.1.5 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all --no-index --find-links=./rocm_deps
+          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 networkx==3.4.2 Pillow==9.5.0 MarkupSafe==2.1.5 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
@@ -202,16 +167,10 @@ jobs:
           $cp_ver = "cp" + $py_ver.Replace(".", "")
           echo "CP_VER=$cp_ver" >> $env:GITHUB_ENV
 
-      - name: Restore ROCm Dependencies
-        uses: actions/cache/restore@v4
-        with:
-          path: ./rocm_deps
-          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.10
-
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 networkx==3.4.2 Pillow==9.5.0 MarkupSafe==2.1.5 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all --no-index --find-links=./rocm_deps
+          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 networkx==3.4.2 Pillow==9.5.0 MarkupSafe==2.1.5 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
