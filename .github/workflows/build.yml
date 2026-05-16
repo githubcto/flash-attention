@@ -33,7 +33,6 @@ jobs:
       - name: Download dependencies
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
-          python -m pip install --upgrade pip wheel
           python -m pip download torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all/ --dest ./rocm_deps
 
   # --- 1-A. jobs divide part1 ---
@@ -73,7 +72,6 @@ jobs:
 
       - name: Install PyTorch and ROCm SDK
         run: |
-          python -m pip install --upgrade pip wheel
           python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all/ --no-index --find-links=./rocm_deps
           rocm-sdk init
 
@@ -140,7 +138,6 @@ jobs:
 
       - name: Install PyTorch and ROCm SDK
         run: |
-          python -m pip install --upgrade pip wheel
           python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all/ --no-index --find-links=./rocm_deps
           rocm-sdk init
 
@@ -210,7 +207,6 @@ jobs:
 
       - name: Install PyTorch and ROCm SDK
         run: |
-          python -m pip install --upgrade pip wheel
           python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all/ --no-index --find-links=./rocm_deps
           rocm-sdk init
 
