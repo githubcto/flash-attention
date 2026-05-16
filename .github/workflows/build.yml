@@ -34,7 +34,7 @@ jobs:
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip download torch torchvision torchaudio rocm[devel] numpy==1.26.4 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all --dest ./rocm_deps
+          python -m pip download torch torchvision torchaudio rocm[devel] numpy==1.26.4 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all/ --dest ./rocm_deps
 
   # --- 1-A. jobs divide part1 ---
   compile-chunk-part1:
@@ -74,7 +74,7 @@ jobs:
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install torch torchvision torchaudio rocm[devel] numpy==1.26.4 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all --no-index --find-links=./rocm_deps
+          python -m pip install torch torchvision torchaudio rocm[devel] numpy==1.26.4 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all/ --no-index --find-links=./rocm_deps
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
@@ -141,7 +141,7 @@ jobs:
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install torch torchvision torchaudio rocm[devel] numpy==1.26.4 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all --no-index --find-links=./rocm_deps
+          python -m pip install torch torchvision torchaudio rocm[devel] numpy==1.26.4 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all/ --no-index --find-links=./rocm_deps
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
@@ -211,7 +211,7 @@ jobs:
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install torch torchvision torchaudio rocm[devel] numpy==1.26.4 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all --no-index --find-links=./rocm_deps
+          python -m pip install torch torchvision torchaudio rocm[devel] numpy==1.26.4 --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all/ --no-index --find-links=./rocm_deps
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
