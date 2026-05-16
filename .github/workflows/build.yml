@@ -14,8 +14,32 @@ env:
   FLASH_ATTENTION_TRITON_AMD_ENABLE: "FALSE"
 
 jobs:
+  # --- 0. prepare dependencies ---
+  prepare-deps:
+    runs-on: windows-2022
+    steps:
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Cache dependencies
+        id: cache-deps
+        uses: actions/cache@v4
+        with:
+          path: ./rocm_deps
+          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.10
+
+      - name: Download dependencies
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install  numpy==1.26.4
+          python -m pip download torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all --dest ./rocm_deps
+
   # --- 1-A. jobs divide part1 ---
   compile-chunk-part1:
+    needs: prepare-deps
     runs-on: windows-2022
     strategy:
       fail-fast: false
@@ -42,16 +66,17 @@ jobs:
         with:
           arch: x64
 
+      - name: Restore ROCm Dependencies
+        uses: actions/cache/restore@v4
+        with:
+          path: ./rocm_deps
+          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.10
+
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install numpy==1.26.4
-          pip install https://repo.amd.com/rocm/whl/gfx120X-all/rocm_sdk_core-7.13.0-py3-none-win_amd64.whl https://repo.amd.com/rocm/whl/gfx120X-all/rocm_sdk_devel-7.13.0-py3-none-win_amd64.whl https://repo.amd.com/rocm/whl/gfx120X-all/rocm_sdk_libraries_gfx120x_all-7.13.0-py3-none-win_amd64.whl https://repo.amd.com/rocm/whl/gfx120X-all/rocm-7.13.0.tar.gz https://repo.amd.com/rocm/whl/gfx120X-all/torch-2.11.0+rocm7.13.0-cp310-cp310-win_amd64.whl https://repo.amd.com/rocm/whl/gfx120X-all/torchaudio-2.11.0+rocm7.13.0-cp310-cp310-win_amd64.whl https://repo.amd.com/rocm/whl/gfx120X-all/torchvision-0.26.0+rocm7.13.0-cp310-cp310-win_amd64.whl
-          $ROCM_ROOT = (rocm-sdk path --root).Trim()
-          $ROCM_BIN = (rocm-sdk path --bin).Trim()
-          echo "ROCM_HOME=$ROCM_ROOT" >> $env:GITHUB_ENV
-          echo "$ROCM_ROOT\lib\llvm\bin" >> $env:GITHUB_PATH
-          echo "$ROCM_BIN" >> $env:GITHUB_PATH
+          python -m pip install  numpy==1.26.4
+          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all --no-index --find-links=./rocm_deps
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
@@ -78,6 +103,7 @@ jobs:
           name: compiled-objects-chunk-${{ matrix.chunk }}
           path: build/
           retention-days: 1
+
 
   # --- 1-B. jobs divide part2 ---
   compile-chunk-part2:
@@ -108,16 +134,17 @@ jobs:
         with:
           arch: x64
 
+      - name: Restore ROCm Dependencies
+        uses: actions/cache/restore@v4
+        with:
+          path: ./rocm_deps
+          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.10
+
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install numpy==1.26.4
-          pip install https://repo.amd.com/rocm/whl/gfx120X-all/rocm_sdk_core-7.13.0-py3-none-win_amd64.whl https://repo.amd.com/rocm/whl/gfx120X-all/rocm_sdk_devel-7.13.0-py3-none-win_amd64.whl https://repo.amd.com/rocm/whl/gfx120X-all/rocm_sdk_libraries_gfx120x_all-7.13.0-py3-none-win_amd64.whl https://repo.amd.com/rocm/whl/gfx120X-all/rocm-7.13.0.tar.gz https://repo.amd.com/rocm/whl/gfx120X-all/torch-2.11.0+rocm7.13.0-cp310-cp310-win_amd64.whl https://repo.amd.com/rocm/whl/gfx120X-all/torchaudio-2.11.0+rocm7.13.0-cp310-cp310-win_amd64.whl https://repo.amd.com/rocm/whl/gfx120X-all/torchvision-0.26.0+rocm7.13.0-cp310-cp310-win_amd64.whl
-          $ROCM_ROOT = (rocm-sdk path --root).Trim()
-          $ROCM_BIN = (rocm-sdk path --bin).Trim()
-          echo "ROCM_HOME=$ROCM_ROOT" >> $env:GITHUB_ENV
-          echo "$ROCM_ROOT\lib\llvm\bin" >> $env:GITHUB_PATH
-          echo "$ROCM_BIN" >> $env:GITHUB_PATH
+          python -m pip install  numpy==1.26.4
+          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all --no-index --find-links=./rocm_deps
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
@@ -129,7 +156,7 @@ jobs:
           echo "$ROCM_BIN" >> $env:GITHUB_PATH
           echo "MAX_JOBS=$env:NUMBER_OF_PROCESSORS" >> $env:GITHUB_ENV
 
-      - name: Compile Chunk ${{ matrix.chunk }} (Part 2)
+      - name: Compile Chunk ${{ matrix.chunk }} (Part 1)
         env:
           BUILD_CHUNK_INDEX: ${{ matrix.chunk }}
           BUILD_NUM_CHUNKS: 40
@@ -178,16 +205,17 @@ jobs:
           $cp_ver = "cp" + $py_ver.Replace(".", "")
           echo "CP_VER=$cp_ver" >> $env:GITHUB_ENV
 
+      - name: Restore ROCm Dependencies
+        uses: actions/cache/restore@v4
+        with:
+          path: ./rocm_deps
+          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.10
+
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install numpy==1.26.4
-          pip install https://repo.amd.com/rocm/whl/gfx120X-all/rocm_sdk_core-7.13.0-py3-none-win_amd64.whl https://repo.amd.com/rocm/whl/gfx120X-all/rocm_sdk_devel-7.13.0-py3-none-win_amd64.whl https://repo.amd.com/rocm/whl/gfx120X-all/rocm_sdk_libraries_gfx120x_all-7.13.0-py3-none-win_amd64.whl https://repo.amd.com/rocm/whl/gfx120X-all/rocm-7.13.0.tar.gz https://repo.amd.com/rocm/whl/gfx120X-all/torch-2.11.0+rocm7.13.0-cp310-cp310-win_amd64.whl https://repo.amd.com/rocm/whl/gfx120X-all/torchaudio-2.11.0+rocm7.13.0-cp310-cp310-win_amd64.whl https://repo.amd.com/rocm/whl/gfx120X-all/torchvision-0.26.0+rocm7.13.0-cp310-cp310-win_amd64.whl
-          $ROCM_ROOT = (rocm-sdk path --root).Trim()
-          $ROCM_BIN = (rocm-sdk path --bin).Trim()
-          echo "ROCM_HOME=$ROCM_ROOT" >> $env:GITHUB_ENV
-          echo "$ROCM_ROOT\lib\llvm\bin" >> $env:GITHUB_PATH
-          echo "$ROCM_BIN" >> $env:GITHUB_PATH
+          python -m pip install  numpy==1.26.4
+          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all --no-index --find-links=./rocm_deps
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
@@ -242,4 +270,3 @@ jobs:
         with:
           name: flash-attn-${{ env.FLASH_ATTN_LOCAL_VERSION }}-${{ env.CP_VER }}-win_amd64
           path: dist/*.whl
-
