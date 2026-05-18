@@ -18,17 +18,17 @@ jobs:
   prepare-deps:
     runs-on: windows-2022
     steps:
-      - name: Setup Python 3.13
+      - name: Setup Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.12"
 
       - name: Cache dependencies
         id: cache-deps
         uses: actions/cache@v4
         with:
           path: ./rocm_deps
-          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.13
+          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.12
 
       - name: Download dependencies
         if: steps.cache-deps.outputs.cache-hit != 'true'
@@ -43,8 +43,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.13"]
-        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+        python-version: ["3.12"]
+        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
 
     steps:
       - name: Enable long paths in Git
@@ -69,7 +69,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ./rocm_deps
-          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.13
+          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.12
 
       - name: Install PyTorch and ROCm SDK
         run: |
@@ -89,7 +89,7 @@ jobs:
       - name: Compile Chunk ${{ matrix.chunk }} (Part 1)
         env:
           BUILD_CHUNK_INDEX: ${{ matrix.chunk }}
-          BUILD_NUM_CHUNKS: 19
+          BUILD_NUM_CHUNKS: 18
           BUILD_COMPILE_ONLY: "1" # skip link
         run: |
           # compile only
@@ -109,7 +109,7 @@ jobs:
     runs-on: windows-2022
     strategy:
       matrix:
-        python-version: ["3.13"]
+        python-version: ["3.12"]
         
     steps:
       - name: Enable long paths in Git
@@ -140,7 +140,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ./rocm_deps
-          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.13
+          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.12
 
       - name: Install PyTorch and ROCm SDK
         run: |
