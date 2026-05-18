@@ -18,23 +18,23 @@ jobs:
   prepare-deps:
     runs-on: windows-2022
     steps:
-      - name: Setup Python 3.10
+      - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Cache dependencies
         id: cache-deps
         uses: actions/cache@v4
         with:
           path: ./rocm_deps
-          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.10
+          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.11
 
       - name: Download dependencies
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip download torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 networkx Pillow MarkupSafe --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all --dest ./rocm_deps
+          python -m pip download torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all --dest ./rocm_deps
 
   # --- 1-A. jobs divide part1 ---
   compile-chunk:
@@ -43,8 +43,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10"]
-        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+        python-version: ["3.11"]
+        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 
     steps:
       - name: Enable long paths in Git
@@ -69,12 +69,12 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ./rocm_deps
-          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.10
+          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.11
 
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 networkx Pillow MarkupSafe --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all --no-index --find-links=./rocm_deps
+          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all --no-index --find-links=./rocm_deps
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
@@ -89,7 +89,7 @@ jobs:
       - name: Compile Chunk ${{ matrix.chunk }} (Part 1)
         env:
           BUILD_CHUNK_INDEX: ${{ matrix.chunk }}
-          BUILD_NUM_CHUNKS: 19
+          BUILD_NUM_CHUNKS: 20
           BUILD_COMPILE_ONLY: "1" # skip link
         run: |
           # compile only
@@ -109,7 +109,7 @@ jobs:
     runs-on: windows-2022
     strategy:
       matrix:
-        python-version: ["3.10"]
+        python-version: ["3.11"]
         
     steps:
       - name: Enable long paths in Git
@@ -140,12 +140,12 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ./rocm_deps
-          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.10
+          key: rocm-windows-deps-${{ env.FLASH_ATTN_LOCAL_VERSION }}-py3.11
 
       - name: Install PyTorch and ROCm SDK
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] numpy==1.26.4 networkx Pillow MarkupSafe --extra-index-url https://repo.amd.com/rocm/whl/gfx120X-all --no-index --find-links=./rocm_deps
+          python -m pip install torch==2.11.0+rocm7.13.0 torchvision==0.26.0+rocm7.13.0 torchaudio==2.11.0+rocm7.13.0 rocm[devel] --index-url https://repo.amd.com/rocm/whl/gfx120X-all --no-index --find-links=./rocm_deps
           rocm-sdk init
 
       - name: Setup ROCm Dynamic Paths
