@@ -44,7 +44,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10"]
-        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
 
     steps:
       - name: Enable long paths in Git
@@ -89,7 +89,7 @@ jobs:
       - name: Compile Chunk ${{ matrix.chunk }} (Part 1)
         env:
           BUILD_CHUNK_INDEX: ${{ matrix.chunk }}
-          BUILD_NUM_CHUNKS: 18
+          BUILD_NUM_CHUNKS: 19
           BUILD_COMPILE_ONLY: "1" # skip link
         run: |
           # compile only
